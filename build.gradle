@@ -1,72 +1,58 @@
-apply plugin: "java-library"
-apply plugin: 'maven-publish'
+plugins {
+    id 'java-library'
+    id 'com.vanniktech.maven.publish' version "$mavenPublish"
+}
 
-version '2.22.8'
-
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+group 'io.github.palexdev'
+version '$ver'
 
 repositories {
     mavenCentral()
-    maven { url "https://jitpack.io" }
+}
+
+dependencies {
+    api "com.esotericsoftware:kryo:$kryo"
+
+    testImplementation platform("org.junit:junit-bom:$junit")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+java {
+    sourceCompatibility = "$jdk"
+    targetCompatibility = "$jdk"
+    withSourcesJar()
+    withJavadocJar()
+    tasks.withType(Jar).each { it.archiveBaseName.set("kryonet") }
 }
 
 test {
     useJUnitPlatform()
-
+    // FIXME for RMI tests
+    jvmArgs += [
+            '--add-opens', 'java.base/java.lang=ALL-UNNAMED'
+    ]
     testLogging {
         events "passed", "skipped", "failed", "standardError"
     }
 }
 
-tasks.withType(JavaCompile) {
-    options.encoding = 'UTF-8'
-}
-
-tasks.withType(Test) {
-	systemProperty "file.encoding", "UTF-8"
-}
-
-dependencies {
-    implementation "com.github.esotericsoftware:jsonbeans:c3520fcc51" // = 0.10
-    api "com.esotericsoftware:kryo:5.5.0"
-
-    testImplementation "org.junit.jupiter:junit-jupiter-api:5.9.2"
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.9.2"
-}
-
-task sourcesJar(type: Jar, dependsOn: classes) {
-    archiveClassifier = 'sources'
-    from sourceSets.main.allSource
-}
-
-task javadocJar(type: Jar, dependsOn: javadoc) {
-    archiveClassifier = 'javadoc'
-    from javadoc.destinationDir
-}
-
-javadoc {
-    options {
-        addBooleanOption('author', true)
-        links "https://docs.oracle.com/en/java/javase/17/docs/api/"
+jar {
+    manifest {
+        attributes 'Automatic-Module-Name': 'io.github.palexdev.kryonet'
     }
 }
 
-publishing {
-    publications {
-        plugin(MavenPublication) { publication ->
-            groupId 'com.github.crykn'
-            artifactId project.archivesBaseName
-            version project.version
-
-            from components['java']
-
-            artifact sourcesJar
-            artifact javadocJar
+configurations {
+    // Remove vanniktech nonsense
+    gradle.taskGraph.whenReady { graph ->
+        if (graph.hasTask(plainJavadocJar)) {
+            plainJavadocJar.enabled = false
         }
     }
+}
 
-    repositories {
-        mavenLocal()
-    }
+mavenPublishing {
+    publishToMavenCentral()
+    signAllPublications()
 }
